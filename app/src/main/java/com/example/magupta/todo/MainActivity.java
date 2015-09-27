@@ -13,28 +13,28 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.apache.commons.io.FileUtils;
-
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
+import helpers.DBHelper;
+import models.Task;
+
 public class MainActivity extends Activity {
-    ArrayList<String> items;
-    ArrayAdapter<String> itemsAdapter;
+    ArrayList<Task> items;
+    ArrayAdapter<Task> itemsAdapter;
     ListView lvItems;
     private final int REQUEST_CODE = 20;
-
+    DBHelper dbHelper;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
 
-        lvItems = (ListView)findViewById(R.id.lvItems);
-        items = new ArrayList<>();
+        dbHelper = new DBHelper(getApplicationContext());
 
-        readItems();
-        itemsAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, items);
+        lvItems = (ListView)findViewById(R.id.lvItems);
+        items = dbHelper.getAllTasks();
+        itemsAdapter = new ArrayAdapter<Task>(this, android.R.layout.simple_list_item_1, items);
         lvItems.setAdapter(itemsAdapter);
 
         setupListViewListener();
@@ -47,9 +47,10 @@ public class MainActivity extends Activity {
                     @Override
                     public boolean onItemLongClick(AdapterView<?> adapter, View item, int pos,
                                                    long id) {
+                        Task task = items.get(pos);
+                        dbHelper.deleteTask(task);
                         items.remove(pos);
                         itemsAdapter.notifyDataSetChanged();
-                        writeItems();
                         return true;
                     }
                 }
@@ -62,6 +63,7 @@ public class MainActivity extends Activity {
                         Intent intent = new Intent(MainActivity.this, EditItemActivity.class);
                         intent.putExtra("text", ((TextView) view).getText());
                         intent.putExtra("position", position);
+                        intent.putExtra("task_id", items.get(position).getId());
                         startActivityForResult(intent, REQUEST_CODE);
                     }
                 }
@@ -94,30 +96,12 @@ public class MainActivity extends Activity {
         EditText etNewItem  = (EditText) findViewById(R.id.etNewItem);
         String itemText = etNewItem.getText().toString();
         if (!itemText.isEmpty()) {
-            itemsAdapter.add(itemText);
+            Task task = new Task(itemText);
+            int id = dbHelper.createTask(task);
+            task.setId(id);
+            itemsAdapter.add(task);
         }
         etNewItem.setText("");
-        writeItems();
-    }
-
-    private void readItems() {
-        File filesDir = getFilesDir();
-        File todoFile = new File(filesDir, "todo.txt");
-        try {
-            items = new ArrayList<String>(FileUtils.readLines(todoFile));
-        } catch (IOException e){
-            items = new ArrayList<>();
-        }
-    }
-
-    private void writeItems(){
-        File filesDir = getFilesDir();
-        File todoFile = new File(filesDir, "todo.txt");
-        try{
-            FileUtils.writeLines(todoFile, items);
-        } catch (IOException e){
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -127,9 +111,9 @@ public class MainActivity extends Activity {
             Toast.makeText(this, name, Toast.LENGTH_SHORT).show();
 
             int position = data.getExtras().getInt("position");
-            items.set(position, name);
+            items.get(position).setName(name);
             itemsAdapter.notifyDataSetChanged();
-            writeItems();
+//            writeItems();
         }
     }
 }
